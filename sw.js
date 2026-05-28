@@ -1,7 +1,8 @@
-const CACHE = "corte-v2";
+const CACHE = "corte-v3";
 const ASSETS = [
   "./index.html",
   "./app.js",
+  "./quotes.js",
   "./style.css",
   "./manifest.json",
   "./icons/icon-192.png",

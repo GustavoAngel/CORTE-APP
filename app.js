@@ -1,5 +1,6 @@
 // ── CONSTANTS ──
 const STORAGE_KEY = "corte_v1";
+const QUOTE_KEY   = "corte_quote_v1";
 const MACROS = { calorias: 2550, proteina: 185, carbos: 285, grasas: 75 };
 const START_DATE = "2026-05-27";
 const END_DATE   = "2026-08-15";
@@ -28,6 +29,11 @@ function pct(val, goal) { return val ? Math.min(100, Math.round((parseFloat(val)
 function macroColor(key) {
   return { proteina:"#00d4ff", carbos:"#ffb800", grasas:"#ff6b6b", calorias:"#a78bfa" }[key];
 }
+function dateHash(str) {
+  let h = 0;
+  for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) >>> 0;
+  return h;
+}
 
 // ── STORAGE ──
 function load() {
@@ -48,6 +54,42 @@ function getWeightLost() { return (START_WEIGHT - getLastWeight()).toFixed(1); }
 function getDaysElapsed() { return Math.max(0, daysBetween(START_DATE, today())); }
 function getDaysLeft()    { return Math.max(0, daysBetween(today(), END_DATE)); }
 function getProgress()    { return Math.min(100, (getDaysElapsed() / 80) * 100); }
+
+// ── QUOTE OF THE DAY ──
+function getQuoteState() {
+  try {
+    const raw = localStorage.getItem(QUOTE_KEY);
+    if (raw) {
+      const state = JSON.parse(raw);
+      if (state.date === today()) return state;
+    }
+  } catch {}
+  // Nuevo día: elegir frase determinista basada en la fecha
+  const index = dateHash(today()) % QUOTES.length;
+  const state = { date: today(), index, accepted: false };
+  try { localStorage.setItem(QUOTE_KEY, JSON.stringify(state)); } catch {}
+  return state;
+}
+
+function acceptQuote() {
+  const state = getQuoteState();
+  state.accepted = true;
+  try { localStorage.setItem(QUOTE_KEY, JSON.stringify(state)); } catch {}
+  document.getElementById("quote-modal").classList.add("hidden");
+  render();
+}
+
+function initQuoteModal() {
+  const state = getQuoteState();
+  if (!state.accepted) {
+    const modal = document.getElementById("quote-modal");
+    const text  = document.getElementById("quote-text");
+    if (modal && text) {
+      text.textContent = QUOTES[state.index];
+      modal.classList.remove("hidden");
+    }
+  }
+}
 
 // ── RENDER HELPERS ──
 function macroBar(label, key, val) {
@@ -78,6 +120,13 @@ function renderHome() {
   const prog = getProgress().toFixed(0);
   const wLost = parseFloat(getWeightLost());
   const lastW = getLastWeight();
+  const qState = getQuoteState();
+
+  const quoteCard = qState.accepted ? `
+    <div class="quote-bottom fade-up">
+      <div class="quote-bottom-label">Frase del día</div>
+      <div class="quote-bottom-text">${QUOTES[qState.index]}</div>
+    </div>` : "";
 
   return `
     <div class="header fade-up">
@@ -123,6 +172,8 @@ function renderHome() {
         ${macroBar("Grasas","grasas", te?.grasas)}
         ${macroBar("Calorías","calorias", te?.calorias)}
       </div>
+
+      ${quoteCard}
     </div>`;
 }
 
@@ -184,7 +235,6 @@ function renderProgress() {
   const goalPct = Math.min(100, (wLost / goalKg) * 100);
   const goalRange = `${GOAL_WEIGHT - 2}–${GOAL_WEIGHT} kg`;
 
-  // SVG chart
   const cW = 360, cH = 140;
   const vals = wData.map(d => d.w);
   const minW = Math.min(...vals) - 1;
@@ -322,7 +372,6 @@ function goView(v) {
 
 function setField(key, value) {
   formData[key] = value;
-  // Live update macro bar colors using data-key attribute
   document.querySelectorAll('.grid2 input[data-key]').forEach(inp => {
     const k = inp.dataset.key;
     if (k && MACROS[k]) {
@@ -333,7 +382,6 @@ function setField(key, value) {
 }
 
 function saveEntry() {
-  // Validar peso
   if (formData.weight !== "" && formData.weight !== undefined) {
     const w = parseFloat(formData.weight);
     if (isNaN(w) || w < 30 || w > 300) {
@@ -341,7 +389,6 @@ function saveEntry() {
       return;
     }
   }
-  // Validar macros
   const macroKeys = ["proteina", "carbos", "grasas", "calorias"];
   const macroNames = { proteina: "Proteína", carbos: "Carbos", grasas: "Grasas", calorias: "Calorías" };
   for (const k of macroKeys) {
@@ -414,3 +461,4 @@ if ("serviceWorker" in navigator) {
 // ── INIT ──
 load();
 render();
+initQuoteModal();

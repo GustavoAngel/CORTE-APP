@@ -21,6 +21,15 @@
     <div id="nav"></div>
   </div>
 
+  <!-- Frase del día – Modal pantalla completa -->
+  <div id="quote-modal" class="hidden">
+    <div class="quote-modal-inner">
+      <div class="quote-modal-label">Frase del día</div>
+      <div id="quote-text" class="quote-modal-text"></div>
+      <button class="btn-primary quote-accept-btn" onclick="acceptQuote()">ACEPTO</button>
+    </div>
+  </div>
+
   <!-- PWA Install Banner -->
   <div id="install-banner" class="hidden">
     <span>Instala CORTE en tu celular</span>
@@ -30,6 +39,7 @@
     </div>
   </div>
 
+  <script src="./quotes.js"></script>
   <script src="./app.js"></script>
 </body>
 </html>
