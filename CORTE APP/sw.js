@@ -1,9 +1,11 @@
-const CACHE = "corte-v1";
+const CACHE = "corte-v2";
 const ASSETS = [
   "./index.html",
   "./app.js",
   "./style.css",
   "./manifest.json",
+  "./icons/icon-192.png",
+  "./icons/icon-512.png",
   "https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;600;700&family=Space+Mono&display=swap"
 ];
 

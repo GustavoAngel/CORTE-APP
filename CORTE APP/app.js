@@ -4,6 +4,7 @@ const MACROS = { calorias: 2550, proteina: 185, carbos: 285, grasas: 75 };
 const START_DATE = "2026-05-27";
 const END_DATE   = "2026-08-15";
 const START_WEIGHT = 82;
+const GOAL_WEIGHT  = 76;
 const MONTHS = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
 
 // ── STATE ──
@@ -149,7 +150,7 @@ function renderLog() {
           ].map(({key,label,ph}) => `
             <div>
               <span class="lbl lbl-xs">${label}</span>
-              <input type="number" class="big ${f[key] && parseFloat(f[key]) >= MACROS[key]*0.9 ? "ok" : ""}" placeholder="${ph}" value="${f[key]}" oninput="setField('${key}',this.value)">
+              <input type="number" data-key="${key}" class="big ${f[key] && parseFloat(f[key]) >= MACROS[key]*0.9 ? "ok" : ""}" placeholder="${ph}" value="${f[key]}" oninput="setField('${key}',this.value)">
             </div>`).join("")}
         </div>
       </div>
@@ -178,8 +179,10 @@ function renderProgress() {
   const consistPct = totalDays ? Math.round((trainedDays/totalDays)*100) : 0;
   const lastW = getLastWeight();
   const wLost = parseFloat(getWeightLost());
-  const toGoal = Math.max(0, lastW - 76).toFixed(1);
-  const goalPct = Math.min(100, (wLost/6)*100);
+  const toGoal = Math.max(0, lastW - GOAL_WEIGHT).toFixed(1);
+  const goalKg = START_WEIGHT - GOAL_WEIGHT;
+  const goalPct = Math.min(100, (wLost / goalKg) * 100);
+  const goalRange = `${GOAL_WEIGHT - 2}–${GOAL_WEIGHT} kg`;
 
   // SVG chart
   const cW = 360, cH = 140;
@@ -237,8 +240,8 @@ function renderProgress() {
         <span class="lbl">Meta final</span>
         <div class="row" style="justify-content:space-between;align-items:center">
           <div>
-            <div style="font-size:13px;color:var(--muted)">Inicio: <span style="color:#fff;font-weight:700">82 kg</span></div>
-            <div style="font-size:13px;color:var(--muted);margin-top:4px">Meta: <span style="color:var(--accent);font-weight:700">74–76 kg</span></div>
+            <div style="font-size:13px;color:var(--muted)">Inicio: <span style="color:#fff;font-weight:700">${START_WEIGHT} kg</span></div>
+            <div style="font-size:13px;color:var(--muted);margin-top:4px">Meta: <span style="color:var(--accent);font-weight:700">${goalRange}</span></div>
           </div>
           <div style="text-align:right">
             <div style="font-size:13px;color:var(--muted)">Actual: <span style="color:#fff;font-weight:700">${lastW} kg</span></div>
@@ -280,7 +283,10 @@ function renderHistory() {
       <div class="header-sub">Todos los registros</div>
       <div class="header-title">HISTORIAL</div>
     </div>
-    <div class="section">${items}</div>`;
+    <div class="section">
+      ${items}
+      ${sorted.length > 0 ? `<button class="btn-export" onclick="exportData()">↓ Exportar respaldo (.json)</button>` : ""}
+    </div>`;
 }
 
 function renderNav() {
@@ -316,18 +322,37 @@ function goView(v) {
 
 function setField(key, value) {
   formData[key] = value;
-  // Live update macro bar colors
-  const inputs = document.querySelectorAll('.grid2 input');
-  inputs.forEach(inp => {
-    const k = inp.getAttribute('oninput')?.match(/setField\('(\w+)'/)?.[1];
+  // Live update macro bar colors using data-key attribute
+  document.querySelectorAll('.grid2 input[data-key]').forEach(inp => {
+    const k = inp.dataset.key;
     if (k && MACROS[k]) {
       const v = parseFloat(inp.value);
-      inp.classList.toggle("ok", !isNaN(v) && v >= MACROS[k]*0.9);
+      inp.classList.toggle("ok", !isNaN(v) && v >= MACROS[k] * 0.9);
     }
   });
 }
 
 function saveEntry() {
+  // Validar peso
+  if (formData.weight !== "" && formData.weight !== undefined) {
+    const w = parseFloat(formData.weight);
+    if (isNaN(w) || w < 30 || w > 300) {
+      alert("Peso inválido. Ingresa un valor entre 30 y 300 kg.");
+      return;
+    }
+  }
+  // Validar macros
+  const macroKeys = ["proteina", "carbos", "grasas", "calorias"];
+  const macroNames = { proteina: "Proteína", carbos: "Carbos", grasas: "Grasas", calorias: "Calorías" };
+  for (const k of macroKeys) {
+    if (formData[k] !== "" && formData[k] !== undefined) {
+      const v = parseFloat(formData[k]);
+      if (isNaN(v) || v < 0 || v > 9999) {
+        alert(`Valor inválido para ${macroNames[k]}. Ingresa un número entre 0 y 9999.`);
+        return;
+      }
+    }
+  }
   const updated = entries.filter(e => e.date !== formData.date);
   entries = [...updated, { ...formData }];
   save();
@@ -340,6 +365,20 @@ function saveEntry() {
 function editEntry(date) {
   const e = entries.find(x => x.date === date);
   if (e) { formData = { ...e }; currentView = "log"; window.scrollTo(0,0); render(); }
+}
+
+function exportData() {
+  if (entries.length === 0) { alert("No hay registros para exportar."); return; }
+  const json = JSON.stringify({ exportDate: today(), startDate: START_DATE, startWeight: START_WEIGHT, entries }, null, 2);
+  const blob = new Blob([json], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `corte-backup-${today()}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 // ── PWA INSTALL ──
